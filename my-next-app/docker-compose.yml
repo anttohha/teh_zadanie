@@ -1,0 +1,11 @@
+services:
+  nextjs:
+    build:
+      context: .
+      target: development
+    volumes:
+      - .:/app
+    ports:
+      - "3000:3000"
+    user: "node"  # Указываем, что контейнер должен работать от пользователя node
+    command: npm run dev
