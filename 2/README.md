@@ -1,7 +1,9 @@
 Для использования надо 
     git clone 
     cd my-nextjs-app
-    и выполнить docker-compose up --build
+    и выполнить docker-compose up app-prod для запуска production окружения 
+    для запуска docker-compose up app-dev для запуска dev окружения
+
 Для проверки надо 
 пройти в  диеркторию app/
 изменить файл page.tsx
