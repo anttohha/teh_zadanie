@@ -1,42 +1,56 @@
 # Stage 1: Install dependencies
 FROM node:18-alpine AS deps
+
+# Устанавливаем рабочую директорию
 WORKDIR /app
 
-# Копируем package.json и package-lock.json для установки зависимостей
+# Копируем package.json и package-lock.json
 COPY package.json package-lock.json ./
 
 # Устанавливаем зависимости
-RUN npm ci
+RUN npm ci --frozen-lockfile
 
-# Stage 2: Build application
-FROM node:18-alpine AS builder
+# Stage 2: Development environment
+FROM node:18-alpine AS dev
+
+# Устанавливаем рабочую директорию
 WORKDIR /app
 
-# Копируем файлы проекта и зависимости
-COPY . .
+# Копируем node_modules из предыдущего этапа
 COPY --from=deps /app/node_modules ./node_modules
 
-# Собираем Next.js-приложение
-RUN npm run build
+# Копируем весь проект (исключая файлы из .dockerignore)
+COPY . .
 
-# Stage 3: Production image
-FROM node:18-alpine AS production
-WORKDIR /app
+# Устанавливаем переменную окружения для разработки
+ENV NODE_ENV=development
 
-# Устанавливаем только production-зависимости
-COPY package.json package-lock.json ./
-RUN npm ci --only=production
-
-# Копируем собранное приложение
-COPY --from=builder /app/.next ./.next
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/node_modules ./node_modules
-
-# Указываем переменную окружения для Next.js
-ENV NODE_ENV production
-
-# Порт, на котором будет запускаться приложение
+# Открываем порт для разработки
 EXPOSE 3000
 
-# Команда запуска
+# Команда для запуска в режиме разработки
+CMD ["npm", "run", "dev"]
+
+# Stage 3: Production environment
+FROM node:18-alpine AS prod
+
+# Устанавливаем рабочую директорию
+WORKDIR /app
+
+# Копируем node_modules из этапа deps
+COPY --from=deps /app/node_modules ./node_modules
+
+# Копируем весь проект
+COPY . .
+
+# Строим приложение для продакшена
+RUN npm run build
+
+# Устанавливаем переменную окружения для продакшена
+ENV NODE_ENV=production
+
+# Открываем порт для продакшена
+EXPOSE 3000
+
+# Команда для запуска в режиме продакшена
 CMD ["npm", "start"]
