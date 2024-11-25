@@ -1,15 +1,24 @@
-version: '3.8'
+version: "3.8"
 
 services:
-  nextjs:
+  app-dev:
     build:
       context: .
-      target: deps
+      target: dev
+    volumes:
+      - .:/app # Монтируем текущую директорию внутрь контейнера
+      - /app/node_modules # Исключаем node_modules из монтирования
     ports:
       - "3000:3000"
-    volumes:
-      - .:/app
-      - /app/node_modules
-    command: "npm run dev"
     environment:
-      NODE_ENV: development
+      - NODE_ENV=development
+    command: npm run dev
+
+  app-prod:
+    build:
+      context: .
+      target: prod
+    ports:
+      - "3000:3001"
+    environment:
+      - NODE_ENV=production
