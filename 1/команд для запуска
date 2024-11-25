@@ -1,0 +1,12 @@
+helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+helm repo update
+helm install nginx-ingress ingress-nginx/ingress-nginx --namespace ingress-nginx --create-namespace
+kubectl get svc -n ingress-nginx
+helm install grafana grafana/grafana --namespace monitoring --set adminPassword=admin --set service.type=LoadBalancer
+
+helm upgrade --install prometheus prometheus-community/prometheus -f values-prometheus.yaml --namespace monitoring
+
+
+
+ab -n 100 -c 10 http://72.146.64.166:8080/   - status  200  ok
+ab -n 100 -c 10 -m POST http://72.146.64.166:8080/nonexistent-path    - status 404 - not found
