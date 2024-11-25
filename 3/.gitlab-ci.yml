@@ -1,0 +1,146 @@
+stages:
+  - build
+  - test
+  - publish
+  - deploy
+
+# Переменные для конфигурации PagerDuty
+variables:
+  PAGERDUTY_API_KEY: "$APIKEY" # Замените на ваш API-ключ
+  PAGERDUTY_INTEGRATION_KEY: "$INTEGRATIONKEY" # Замените на ваш ключ интеграции
+  INCIDENT_TITLE: "Pipeline Failure in GitLab CI"
+  INCIDENT_SOURCE: "GitLab CI/CD"
+  DOCKER_HOST: "tcp://localhost:2375"
+  DOCKER_TLS_CERTDIR: ""
+
+  DOCKER_DRIVER: overlay2
+
+# Общие настройки для Docker-in-Docker
+default:
+  image: docker:24.0.0 # Версия Docker
+  services:
+    - docker:dind # Включение Docker-in-Docker
+
+
+build:
+  stage: build
+  tags:
+    - runnertechnikalzadanie1
+    - docker
+  image: docker:latest # Используем образ с предустановленным Docker
+  services:
+    - docker:dind
+  script:
+    - apt-get update && apt-get install -y curl
+    - echo "Starting build process..."
+    - docker version # Проверка установки Docker
+
+    - if [ $((RANDOM % 2)) -eq 0 ]; then echo "Build failed!" && exit 1; fi
+  before_script:
+  - apk add --no-cache curl
+
+  after_script:
+    - |
+      if [[ "$CI_JOB_STATUS" == "failed" ]]; then
+        curl -X POST "https://events.pagerduty.com/v2/enqueue" \
+          -H "Content-Type: application/json" \
+          -H "Authorization: Token token=$PAGERDUTY_API_KEY" \
+          -d '{
+                "routing_key": "'"$PAGERDUTY_INTEGRATION_KEY"'",
+                "event_action": "trigger",
+                "payload": {
+                  "summary": "'"$INCIDENT_TITLE"'",
+                  "source": "'"$INCIDENT_SOURCE"'",
+                  "severity": "error"
+                }
+              }'
+      fi
+
+# Этап тестирования
+test:
+  stage: test
+  tags:
+    - runnertechnikalzadanie1
+    - docker
+  image: docker:latest # Используем образ с предустановленным Docker
+  services:
+    - docker:dind
+  script:
+    - echo "Running tests..."
+    - docker run --rm my-app:build-test echo "Test container executed"
+    - if [ $((RANDOM % 2)) -eq 0 ]; then echo "Tests failed!" && exit 1; fi
+  after_script:
+    - |
+      if [[ "$CI_JOB_STATUS" == "failed" ]]; then
+        curl -X POST "https://events.pagerduty.com/v2/enqueue" \
+          -H "Content-Type: application/json" \
+          -H "Authorization: Token token=$PAGERDUTY_API_KEY" \
+          -d '{
+                "routing_key": "'"$PAGERDUTY_INTEGRATION_KEY"'",
+                "event_action": "trigger",
+                "payload": {
+                  "summary": "'"$INCIDENT_TITLE"'",
+                  "source": "'"$INCIDENT_SOURCE"'",
+                  "severity": "error"
+                }
+              }'
+      fi
+
+# Этап публикации
+publish:
+  tags:
+    - runnertechnikalzadanie1
+    - docker
+  image: docker:latest # Используем образ с предустановленным Docker
+  services:
+    - docker:dind
+  script:
+    - echo "Publishing artifacts..."
+    - docker tag my-app:build-test my-registry.com/my-app:latest
+    - docker push my-registry.com/my-app:latest
+    - if [ $((RANDOM % 2)) -eq 0 ]; then echo "Publishing failed!" && exit 1; fi
+  after_script:
+    - |
+      if [[ "$CI_JOB_STATUS" == "failed" ]]; then
+        curl -X POST "https://events.pagerduty.com/v2/enqueue" \
+          -H "Content-Type: application/json" \
+          -H "Authorization: Token token=$PAGERDUTY_API_KEY" \
+          -d '{
+                "routing_key": "'"$PAGERDUTY_INTEGRATION_KEY"'",
+                "event_action": "trigger",
+                "payload": {
+                  "summary": "'"$INCIDENT_TITLE"'",
+                  "source": "'"$INCIDENT_SOURCE"'",
+                  "severity": "error"
+                }
+              }'
+      fi
+
+# Этап деплоя
+deploy:
+  tags:
+    - runnertechnikalzadanie1
+    - docker
+  image: docker:latest # Используем образ с предустановленным Docker
+  services:
+    - docker:dind
+  script:
+    - echo "Deploying to production..."
+    - docker run --rm my-app:build-test echo "Deployed container executed"
+    - if [ $((RANDOM % 2)) -eq 0 ]; then echo "Deployment failed!" && exit 1; fi
+  after_script:
+    - |
+      if [[ "$CI_JOB_STATUS" == "failed" ]]; then
+        curl -X POST "https://events.pagerduty.com/v2/enqueue" \
+          -H "Content-Type: application/json" \
+          -H "Authorization: Token token=$PAGERDUTY_API_KEY" \
+          -d '{
+                "routing_key": "'"$PAGERDUTY_INTEGRATION_KEY"'",
+                "event_action": "trigger",
+                "payload": {
+                  "summary": "'"$INCIDENT_TITLE"'",
+                  "source": "'"$INCIDENT_SOURCE"'",
+                  "severity": "error"
+                }
+              }'
+      fi
